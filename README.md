@@ -161,3 +161,92 @@ internal/middleware/         логування, відновлення післ
 
 Репозиторій із коректним `VARIANT`, зеленим CI і короткою секцією в цьому README: як запустити, що реалізовано,
 які рішення ви прийняли. Дедлайн і форма захисту: за вказівкою викладача.
+
+## 8. Реалізація варіанта books
+
+API реалізовано на Gin. Назву модуля `homework` збережено для сумісності
+з оригінальними тестами; `libratrack` із `tema7.md` використано лише як приклад.
+Вибраний варіант у `VARIANT` — `books`.
+
+### Запуск
+
+Потрібні Go 1.27.1 і доступ до Go proxy для першого завантаження залежностей.
+Цю саму версію Go зафіксовано в `go.mod` та GitHub Actions.
+
+```bash
+go mod download
+go run ./cmd/api
+```
+
+Адреса за замовчуванням: `http://localhost:8080`. Змінна `PORT` задає інший порт,
+`ALLOWED_ORIGIN` — дозволений CORS origin (за замовчуванням `*`).
+Swagger UI: <http://localhost:8080/swagger/index.html>.
+Машиночитна специфікація: <http://localhost:8080/swagger/doc.json>.
+`/health` — окремий службовий маршрут поза Swagger base path `/api/v1`.
+
+### Перевірка вручну
+
+```bash
+curl -i http://localhost:8080/health
+curl -i -X POST http://localhost:8080/api/v1/books \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Learning Go","isbn":"9781098139292","author":"Jon Bodner","category":"programming","published_year":2024}'
+curl -i http://localhost:8080/api/v1/books/1
+curl -i 'http://localhost:8080/api/v1/books?category=programming&page=1&limit=10'
+curl -i -X PUT http://localhost:8080/api/v1/books/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Updated book","isbn":"demo-isbn","author":"Demo author","category":"programming"}'
+curl -i -X POST http://localhost:8080/api/v1/books \
+  -H 'Content-Type: application/json' -d '{}'
+curl -i -X DELETE http://localhost:8080/api/v1/books/1
+curl -i http://localhost:8080/api/v1/books/1
+curl -i -X OPTIONS http://localhost:8080/api/v1/books
+```
+
+Очікувані коди: `200`, `201`, `200`, `200`, `200`, `422`, `204`, `404`, `204`.
+Приклади передбачають новий запуск із порожнім сховищем.
+
+### Архітектурні рішення
+
+- `internal/app` створює новий роутер і окреме сховище для кожного `NewRouter()`.
+- `internal/model` визначає Book та DTO. Вказівники для необов'язкових полів
+  відрізняють `null` від `0` і порожнього рядка; `omitempty` для них не використано.
+- `internal/repository` відповідає за дані, ID та часові мітки. `sync.RWMutex`
+  захищає map; глибокі копії необов'язкових полів запобігають змінам поза блокуванням.
+  Фільтрація передує сортуванню і пагінації; межі перевіряються до множення.
+- `internal/handler` перевіряє HTTP-запит і перетворює результат на JSON.
+  `PUT` перевіряє ID, потім тіло, потім існування. Відхилені запити не змінюють дані.
+  Вхідне тіло обмежено 1 MiB; зайві JSON-значення й некоректні типи відхиляються.
+- `internal/middleware`: Recovery, Logging, CORS. Подробиці паніки залишаються
+  в серверному логу. CORS заголовки присутні також у відповідях із помилкою.
+- Окремий service-шар не додано: додаткових бізнес-сценаріїв понад CRUD немає.
+  Author і Category поки текстові, як передбачено темою 7.
+- Дані зберігаються лише в пам'яті та втрачаються після перезапуску.
+
+### Автоматична перевірка
+
+```bash
+go mod tidy
+go build ./...
+go vet ./...
+go test -race -count=1 ./...
+gofmt -l cmd internal docs
+shasum -a 256 -c .github/tests.sha256
+```
+
+Оригінальні тести та `scripts/` залишено незмінними. За запитом власника проєкту
+версію Go в CI оновлено до `1.27.1`; у `.github/tests.sha256` оновлено лише
+контрольну суму `.github/workflows/ci.yml`. Це відхилення від початкового шаблону;
+під час оцінювання викладач може використовувати оригінальний CI.
+Додано власні тести репозиторію, middleware і граничних HTTP-випадків.
+Перевірка panic виконується в тестовому роутері; службового panic endpoint
+у застосунку немає.
+
+Після змін анотацій повторно згенерувати Swagger і включити результат у коміт:
+
+```bash
+go run github.com/swaggo/swag/cmd/swag@v1.16.4 init -g cmd/api/main.go
+```
+
+Swagger UI та його ресурси постачаються Go-залежностями і не потребують CDN.
+Автоматичний CI оцінює до 45 балів; приховані тести та захист оцінює викладач.
