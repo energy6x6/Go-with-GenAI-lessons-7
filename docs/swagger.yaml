@@ -1,0 +1,228 @@
+basePath: /api/v1
+definitions:
+  model.Book:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      isbn:
+        type: string
+      published_year:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.CreateBookRequest:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      isbn:
+        type: string
+      published_year:
+        type: integer
+      title:
+        type: string
+    required:
+    - author
+    - category
+    - isbn
+    - title
+    type: object
+  model.ErrorBody:
+    properties:
+      code:
+        type: string
+      details:
+        type: string
+      message:
+        type: string
+    type: object
+  model.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/model.ErrorBody'
+    type: object
+  model.UpdateBookRequest:
+    properties:
+      author:
+        type: string
+      category:
+        type: string
+      description:
+        type: string
+      isbn:
+        type: string
+      published_year:
+        type: integer
+      title:
+        type: string
+    required:
+    - author
+    - category
+    - isbn
+    - title
+    type: object
+info:
+  contact: {}
+  description: 'Lesson 7: in-memory Book CRUD API. Optional fields are nullable; PUT
+    fully replaces editable fields.'
+  title: Book Catalog API
+  version: "1.0"
+paths:
+  /books:
+    get:
+      parameters:
+      - description: Exact case-sensitive category
+        in: query
+        name: category
+        type: string
+      - default: 1
+        description: Page (starts at 1)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 10
+        description: Page size (clamped to 100)
+        in: query
+        minimum: 1
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Book'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: List books ordered by ID
+      tags:
+      - books
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Book fields
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateBookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/model.Book'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Create a book
+      tags:
+      - books
+  /books/{id}:
+    delete:
+      parameters:
+      - description: Book ID (uint32)
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Delete a book
+      tags:
+      - books
+    get:
+      parameters:
+      - description: Book ID (uint32)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Get a book by ID
+      tags:
+      - books
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Book ID (uint32)
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Replacement fields
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateBookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Book'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/model.ErrorResponse'
+      summary: Replace a book (omitted optional fields become null)
+      tags:
+      - books
+swagger: "2.0"
